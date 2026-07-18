@@ -159,5 +159,5 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.TEXT, message_handler))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 Mahfuz Business AI Bot Fix Active...")
-    app.run_polling(
+    print("🤖 Mahfuz AI Started...")
+app.run_polling()
