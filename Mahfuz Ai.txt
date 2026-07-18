@@ -1,0 +1,163 @@
+
+import time
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
+# ====== কনফিগারেশন ======
+BOT_TOKEN = "8832342689:AAFsjZyp-Qz-geNgGgIkUySgAIZX1c8YS7E"  # <-- আপনার নতুন টোকেনটি এখানে বসান
+# ইউজারদের মিউট বা অফ রাখার ট্র্যাকিং ডিকশনারি {chat_id: expire_timestamp}
+muted_users = {}
+# ====== মেসেজ টেক্সটসমূহ (MarkdownV2 ফরম্যাট) ======
+MAIN_MESSAGE = """🌸 *আসসালামু আলাইকুম।*
+*OWNER MAHFUZ*\\-কে মেসেজ করার জন্য ধন্যবাদ। 💙
+বর্তমানে *OWNER MAHFUZ* স্যার কিছুটা ব্যস্ত আছেন, তাই এই মুহূর্তে আপনার বার্তার সরাসরি উত্তর দিতে পারছেন না। 
+🕒 অনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন। তিনি অনলাইনে আসার সঙ্গে সঙ্গেই আপনার বার্তাটি দেখে অবশ্যই উত্তর দেওয়ার চেষ্টা করবেন। 
+*আপনার মূল্যবান তথ্যের জন্য নিচে কিছু অপশন দেওয়া হলো, ক্লিক করে দেখতে পারেন:*👇"""
+ANS_WHO_IS_MAHFUZ = """🌟 *OWNER MAHFUZ কে?* 🌟
+OWNER MAHFUZ হলেন একজন প্রফেশনাল ট্রেডার, যিনি মার্কেট বিশ্লেষণ, দক্ষতা ও অভিজ্ঞতার মাধ্যমে নিজের পরিচয় তৈরি করেছেন। 
+📌 সম্মান, বিশ্বাস ও ভালো ব্যবহারের মাধ্যমে OWNER MAHFUZ তার পরিচয় ধরে রেখেছেন।
+ধন্যবাদ। 💙
+— *OWNER MAHFUZ*"""
+ANS_HOW_TO_JOIN = """🌟 *OWNER MAHFUZ এর গ্রুপে কিভাবে জয়েন করবেন?* 🌟
+আপনি যদি তার গ্রুপে জয়েন করতে চান, তাহলে অনুগ্রহ করে তার নির্ধারিত অ্যাডমিনের সাথে যোগাযোগ করুন।
+📌 *অ্যাডমিন কন্টাক্ট:*
+👤 Username: @JB\\_SUPPORT\\_ADMIN\\_1
+
+আপনার সহযোগিতা ও ধৈর্যের জন্য ধন্যবাদ। 💙
+— *OWNER MAHFUZ TEAM*"""
+
+
+# ====== বাটন জেনারেটরসমূহ ======
+def get_main_keyboard(chat_id):
+    keyboard = [
+        [InlineKeyboardButton("1️⃣ OWNER MAHFUZ কে?", callback_data=f"who_{chat_id}")],
+        [InlineKeyboardButton("2️⃣ তার গ্রুপে কিভাবে জয়েন হবো?", callback_data=f"join_{chat_id}")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+def get_only_join_keyboard(chat_id):
+    keyboard = [
+        [InlineKeyboardButton("2️⃣ তার গ্রুপে কিভাবে জয়েন হবো?", callback_data=f"join_{chat_id}")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+# ====== মেইন মেসেজ হ্যান্ডলার ======
+async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.business_message or update.message
+    if not msg or not msg.text:
+        return
+
+    # টেলিগ্রাম বিজনেস বটের আসল লজিক:
+    # যদি মেসেজটি Business Message হয় এবং chat.id আর from_user.id এক না হয়, তার মানে আপনি (মালিক) মেসেজটি পাঠিয়েছেন।
+    is_owner = False
+    if update.business_message and msg.chat.id != msg.from_user.id:
+        is_owner = True
+
+    chat_id = msg.chat_id  # কাস্টমারের ইউনিক চ্যাট আইডি
+    text_lower = msg.text.strip().lower()
+
+    # =======================================================
+    # ১. আপনি (মালিক) যখন কোনো ইউজারের ইনবক্সে মেসেজ পাঠাচ্ছেন
+    # =======================================================
+    if is_owner:
+        # স্ল্যাশ কমান্ড দিয়ে অফ করা (/off)
+        if text_lower == "/off":
+            muted_users[chat_id] = time.time() + 600
+            print(f"🛑 Manually set AI OFF for chat {chat_id}")
+            try:
+                await msg.delete()  # আপনার পাঠানো /off মেসেজটি ডিলিট করে দেবে
+            except Exception as e:
+                print("Delete failed:", e)
+            return
+
+        # স্ল্যাশ কমান্ড দিয়ে অন করা (/on)
+        elif text_lower == "/on":
+            if chat_id in muted_users:
+                del muted_users[chat_id]
+            print(f"🟢 Manually set AI ON for chat {chat_id}")
+            try:
+                await msg.delete()  # /on মেসেজটিও ডিলিট করে দেবে
+            except Exception as e:
+                print("Delete failed:", e)
+            return
+
+        # আপনি নরমাল কোনো মেসেজ বা রিপ্লাই দিলে টাইমার স্বয়ংক্রিয়ভাবে ১০ মিনিট বেড়ে যাবে
+        else:
+            muted_users[chat_id] = time.time() + 600
+            print(f"🔄 Owner replied in chat {chat_id}. Timer extended for 10 minutes.")
+            return
+
+    # =======================================================
+    # ২. সাধারণ ইউজারের (কাস্টমারের) মেসেজ চেক করা
+    # =======================================================
+    current_time = time.time()
+    
+    if chat_id in muted_users:
+        if current_time < muted_users[chat_id]:
+            remaining = int((muted_users[chat_id] - current_time) / 60)
+            print(f"🔇 AI is OFF for Chat {chat_id}. Remaining: {remaining} min.")
+            return
+        else:
+            del muted_users[chat_id]
+
+    print(f"📩 NEW MESSAGE FROM USER IN CHAT: {chat_id}")
+
+    try:
+        # বাটনসহ মেইন মেসেজ পাঠানো হচ্ছে
+        await msg.reply_text(
+            text=MAIN_MESSAGE,
+            reply_markup=get_main_keyboard(chat_id),
+            parse_mode="MarkdownV2"
+        )
+        print("✅ Auto Response with Buttons Sent")
+    except Exception as e:
+        print("❌ Error sending message:", e)
+
+
+# ====== ৩. বাটন ক্লিক হ্যান্ডলার (ইউজার যখন বাটনে চাপ দেবে) ======
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data
+
+    try:
+        action, target_chat_id = data.split('_')
+        target_chat_id = int(target_chat_id)
+    except ValueError:
+        return
+
+    print(f"🔘 Button Clicked: {action} in chat {target_chat_id}")
+
+    try:
+        if action == "who":
+            await query.message.reply_text(
+                text=ANS_WHO_IS_MAHFUZ, 
+                reply_markup=get_only_join_keyboard(target_chat_id),
+                parse_mode="MarkdownV2"
+            )
+        elif action == "join":
+            await query.message.reply_text(
+                text=ANS_HOW_TO_JOIN, 
+                parse_mode="MarkdownV2"
+            )
+    except Exception as e:
+        print("❌ Error sending button response:", e)
+
+
+# ===== Telegram App Launch =====
+if __name__ == "__main__":
+    app = Application.builder().token(BOT_TOKEN).build()
+
+    # সব টেক্সট মেসেজ একই হ্যান্ডলারে প্রসেস হবে
+    app.add_handler(MessageHandler(filters.TEXT, message_handler))
+    app.add_handler(CallbackQueryHandler(button_handler))
+
+    print("🤖 Mahfuz Business AI Bot Fix Active...")
+    app.run_polling(
